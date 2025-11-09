@@ -1,5 +1,3 @@
-# wallet/passwords.py
-
 import re
 from typing import List, Tuple
 
@@ -32,7 +30,6 @@ def validate_password_strength(password: str) -> Tuple[bool, List[str]]:
         errors.append("Inclua dígito.")
     if not re.search(r"[^\w\s]", password): 
         errors.append("Inclua símbolo (ex: !@#$%).")
-
     if re.search(r"(.)\1\1\1", password):
         errors.append("Evite repetições longas do mesmo caractere.")
 
