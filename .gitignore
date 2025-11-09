@@ -1,18 +1,6 @@
-# Diretório de ambiente virtual Python
 .venv/
-
-# Cache de bytecode Python
 __pycache__/
 *.pyc
-
-# Arquivos de dados e logs (geralmente temporários ou sensíveis)
-*.log
-*.sqlite
-*.db
-.env
-.flaskenv
-
-# Arquivos temporários do sistema operacional ou editores
 .DS_Store # macOS
 Thumbs.db # Windows
 .vscode/
