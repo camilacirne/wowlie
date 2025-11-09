@@ -41,18 +41,18 @@ Mnemonic Criptografada → wallet.json
 streamlit run streamlit_app.py
 
 # 2. Na interface:
-# - Vá em "📤 Enviar transação"
-# - Preencha os dados (origem, destino, valor, taxa)
-# - Clique em "Criar plano de TX"
-# - O arquivo tx_plan.json será criado
+ - Vá em "📤 Enviar transação"
+- Preencha os dados (origem, destino, valor, taxa)
+- Clique em "Criar plano de TX"
+- O arquivo tx_plan.json será criado
 
-# 3. No Sparrow Wallet:
-# - Configure para testnet
-# - Importe sua seed (12 palavras)
-# - Crie a transação com os valores do plano
-# - Assine e copie o HEX
+3. No Sparrow Wallet:
+- Configure para testnet
+- Importe sua seed (12 palavras)
+- Crie a transação com os valores do plano
+- Assine e copie o HEX
 
-# 4. De volta ao Streamlit:
-# - Cole o HEX na seção "Fazer broadcast"
-# - Clique em "📡 Broadcast TX"
-# - Veja o TXID e link para explorador
+4. De volta ao Streamlit:
+- Cole o HEX na seção "Fazer broadcast"
+- Clique em "📡 Broadcast TX"
+- Veja o TXID e link para explorador
