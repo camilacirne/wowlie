@@ -14,3 +14,5 @@ Carteira Bitcoin **educacional** feita em Python com `btclib`.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+streamlit run streamlit_app.py;
