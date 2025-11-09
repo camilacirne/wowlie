@@ -17,14 +17,14 @@ pip install -r requirements.txt
 ```
 
 ## Segurança
-
+```bash
 wallet.json 
 └── encrypted_mnemonic:
     ├── salt: random 256 bits
     ├── nonce: random 96 bits
     ├── ciphertext: AES-256-GCM(mnemonic)
     └── iterations: 100,000
-
+```
 Senha do Usuário
       ↓
 PBKDF2 (100k iterações) ← Lento de propósito!
@@ -42,16 +42,17 @@ python cli.py init
 ```
 
 ### Outros comandos
-wowlie init              # Criar nova carteira
-wowlie info              # Informações da carteira
-wowlie receive           # Gerar novo endereço
-wowlie balance           # Consultar saldo
-wowlie create-tx         # Criar plano de transação
-wowlie broadcast         # Enviar transação assinada
-wowlie utxos             # Listar UTXOs
-wowlie show-seed         # Ver seed (CUIDADO!)
-wowlie check-password    # Verificar senha
-
+```bash
+init              # Criar nova carteira
+info              # Informações da carteira
+receive           # Gerar novo endereço
+balance           # Consultar saldo
+create-tx         # Criar plano de transação
+broadcast         # Enviar transação assinada
+utxos             # Listar UTXOs
+show-seed         # Ver seed (CUIDADO!)
+check-password    # Verificar senha
+```
 
 ## Interface
 
