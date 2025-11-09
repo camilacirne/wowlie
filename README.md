@@ -1,6 +1,6 @@
 # WowLie Wallet (Testnet)
 
-Carteira Bitcoin **educacional** feita em Python com `btclib`.
+Carteira Bitcoin feita em Python com `btclib`.
 
 ## Recursos
 - BIP39: geração de seed (12 palavras)
@@ -35,12 +35,32 @@ AES-GCM Encrypt
     ↓
 Mnemonic Criptografada → wallet.json
 
+## Usar pelo cli
+
+```bash
+python cli.py init
+```
+
+### Outros comandos
+wowlie init              # Criar nova carteira
+wowlie info              # Informações da carteira
+wowlie receive           # Gerar novo endereço
+wowlie balance           # Consultar saldo
+wowlie create-tx         # Criar plano de transação
+wowlie broadcast         # Enviar transação assinada
+wowlie utxos             # Listar UTXOs
+wowlie show-seed         # Ver seed (CUIDADO!)
+wowlie check-password    # Verificar senha
+
+
 ## Interface
 
-# 1. Rodar o Streamlit
+## Rodar o Streamlit
 streamlit run streamlit_app.py
 
-# 2. Na interface:
+## Fazer uma transação
+
+2. Na interface:
  - Vá em "📤 Enviar transação"
 - Preencha os dados (origem, destino, valor, taxa)
 - Clique em "Criar plano de TX"
