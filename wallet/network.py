@@ -1,4 +1,3 @@
-# wallet/network.py
 import requests
 
 API = "https://blockstream.info/testnet/api"
