@@ -5,7 +5,8 @@ from wallet.keys import init_wallet, next_address, verify_wallet_password
 from wallet.utils import wallet_exists, load_addresses
 from wallet.password import validate_password_strength
 from wallet.network import get_balance
-from wallet.transactions import build_tx_plan, broadcast_tx_hex
+from wallet.transactions import build_tx_plan, broadcast_tx_hex, send_transaction
+
 
 st.set_page_config(page_title="WowLie Wallet | BigCute", page_icon="💰", layout="centered")
 
@@ -198,7 +199,6 @@ else:
     except Exception as e:
         st.error(f"❌ Erro ao carregar informações: {e}")
 
-# ============= GERAR NOVO ENDEREÇO =============
 st.header("➕ Gerar novo endereço")
 
 if not st.session_state.wallet_created:
@@ -231,7 +231,7 @@ else:
             except Exception as e:
                 st.error(f"❌ Erro ao gerar novo endereço: {e}")
 
-# ============= SALDO =============
+
 st.header("💳 Consultar saldo")
 
 if not st.session_state.wallet_created:
@@ -263,7 +263,6 @@ else:
             consultar = c1.button("Consultar saldo", type="primary")
             limpar = c2.button("Limpar resultado")
 
-            # Inicializa variável de resultado se não existir
             if "balance_result" not in st.session_state:
                 st.session_state.balance_result = None
 
@@ -302,7 +301,6 @@ else:
                     st.error(f"❌ Erro ao consultar saldo: {e}")
                     st.session_state.balance_result = None
 
-            # Exibir resultado se existir
             if st.session_state.balance_result:
                 result = st.session_state.balance_result
                 
@@ -332,36 +330,34 @@ elif not st.session_state.unlocked:
     st.info("Entre na carteira para enviar transações.")
 else:
     st.markdown("""
-    ⚠️ **Atenção:** Esta função cria apenas um **plano de transação** não assinado.
-    Você precisará:
-    1. Exportar o plano
-    2. Assinar com outra ferramenta (ex: Sparrow Wallet) usando sua seed
-    3. Voltar aqui e fazer broadcast do TX assinado
+    Você pode **(A)** criar um plano não assinado para usar em outra carteira (ex.: Sparrow),  
+    ou **(B)** **assinar e enviar localmente** com a WowLie (testnet).
     """)
-    
-    with st.expander("1️⃣ Criar plano de transação", expanded=True):
-        with st.form("tx_form"):
+
+    # ------------------ (A) CRIAR PLANO (não assina) ------------------
+    with st.expander("1️⃣ Criar plano de transação (não assina)", expanded=True):
+        with st.form("tx_plan_form"):
             try:
                 idxs, addrs, _ = load_addresses()
                 from_addr = st.selectbox("Do endereço", addrs, index=len(addrs)-1)
-            except:
+            except Exception:
                 from_addr = st.text_input("Do endereço")
-            
+
             to_addr = st.text_input("Para endereço (destino)")
             amount = st.number_input("Quantia (satoshis)", min_value=1, value=10000, step=1000)
             fee_rate = st.number_input("Taxa (sats/vByte)", min_value=1, value=5, step=1)
-            
+
             try:
                 _, addrs_change, _ = load_addresses()
                 if addrs_change:
                     change_addr = st.selectbox("Endereço de troco", addrs_change, index=len(addrs_change)-1)
                 else:
                     change_addr = from_addr
-            except:
+            except Exception:
                 change_addr = from_addr
-            
+
             submitted_tx = st.form_submit_button("Criar plano de TX")
-        
+
         if submitted_tx:
             if not to_addr:
                 st.error("❌ Informe o endereço de destino.")
@@ -377,45 +373,118 @@ else:
                             fee_rate=fee_rate,
                             change_address=change_addr
                         )
-                    
+
                     st.session_state.tx_plan = plan
                     st.success("✅ Plano criado.")
-                    
+
                     st.subheader("📋 Resumo do plano")
                     c1, c2 = st.columns(2)
                     c1.metric("Valor a enviar", f"{plan['amount_sats']:,} sats")
                     c2.metric("Taxa estimada", f"{plan['estimated_fee_sats']:,} sats")
                     c1.metric("Troco", f"{plan.get('change_sats', 0):,} sats")
                     c2.metric("Tamanho estimado", f"{plan['estimated_vbytes']} vBytes")
-                    
+
                     st.write("**De:**", plan['from_address'])
                     st.write("**Para:**", plan['to_address'])
                     if plan.get('change_address'):
                         st.write("**Troco para:**", plan['change_address'])
-                    
+
                     with st.expander("Ver JSON completo"):
                         st.json(plan)
-                    
+
                     st.info("""
-                    **Próximos passos:**
-                    1. Abra o Sparrow Wallet em modo testnet
+                    **Se quiser assinar externamente:**
+                    1. Abra o Sparrow Wallet em **testnet**
                     2. Importe sua seed (12 palavras)
-                    3. Crie a transação manualmente com os valores acima
-                    4. Assine e copie o TX HEX
-                    5. Cole abaixo para fazer broadcast
+                    3. Crie/assine a transação com os valores do plano
+                    4. Copie o TX HEX assinado e faça broadcast abaixo
                     """)
-                    
                 except Exception as e:
                     st.error(f"❌ Erro ao criar plano: {e}")
-    
-    with st.expander("2️⃣ Fazer broadcast de TX assinado", expanded=False):
-        st.markdown("""
-        Cole aqui o **transaction hex** já assinado (obtido do Sparrow ou outra wallet).
-        """)
-        
-        tx_hex = st.text_area("Transaction HEX assinado", height=150, 
-                              placeholder="0200000001...")
-        
+
+    # ------------------ (B) ASSINAR E ENVIAR LOCALMENTE ------------------
+    with st.expander("2️⃣ Assinar e enviar localmente (WowLie)", expanded=False):
+        with st.form("tx_send_form"):
+            try:
+                idxs2, addrs2, _ = load_addresses()
+                from_addr2 = st.selectbox("Do endereço", addrs2, index=len(addrs2)-1, key="send_from_addr")
+            except Exception:
+                from_addr2 = st.text_input("Do endereço", key="send_from_addr_text")
+
+            to_addr2 = st.text_input("Para endereço (destino)", key="send_to_addr")
+            amount2 = st.number_input("Quantia (satoshis)", min_value=1, value=10000, step=1000, key="send_amount")
+            fee_rate2 = st.number_input("Taxa (sats/vByte)", min_value=1, value=5, step=1, key="send_fee")
+            try:
+                _, addrs_change2, _ = load_addresses()
+                if addrs_change2:
+                    change_addr2 = st.selectbox("Endereço de troco", addrs_change2, index=len(addrs_change2)-1, key="send_change")
+                else:
+                    change_addr2 = from_addr2
+            except Exception:
+                change_addr2 = from_addr2
+
+            no_broadcast = st.checkbox("Assinar mas não enviar (mostrar/salvar HEX)", value=False, key="send_no_broadcast")
+            out_hex_name = st.text_input("Salvar HEX em arquivo (opcional)", value="", placeholder="ex.: signed_tx_hex.txt", key="send_hex_file")
+
+            # Senha só para assinar localmente
+            password_local = st.text_input("Senha da carteira", type="password", key="send_wallet_pwd")
+
+            submitted_send = st.form_submit_button("Assinar (e enviar, se marcado)")
+
+        if submitted_send:
+            if not to_addr2:
+                st.error("❌ Informe o endereço de destino.")
+            elif amount2 <= 0:
+                st.error("❌ Quantia deve ser maior que zero.")
+            elif not password_local:
+                st.error("❌ Digite a senha da carteira.")
+            else:
+                try:
+                    with st.spinner("Construindo e assinando a transação..."):
+                        tx_data = send_transaction(
+                            from_address=from_addr2,
+                            to_address=to_addr2,
+                            amount_sats=amount2,
+                            password=password_local,
+                            fee_rate=fee_rate2,
+                            change_address=change_addr2,
+                            broadcast=not no_broadcast
+                        )
+
+                    st.success("✅ Transação assinada.")
+                    st.subheader("Resumo")
+                    c1, c2 = st.columns(2)
+                    c1.metric("Valor enviado", f"{tx_data['amount_sats']:,} sats")
+                    c2.metric("Taxa", f"{tx_data['fee_sats']:,} sats")
+                    if tx_data.get("change_address"):
+                        st.write(f"**Troco:** {tx_data['change_sats']:,} sats → {tx_data['change_address']}")
+                    st.write(f"**Inputs:** {tx_data['inputs']}  |  **Outputs:** {tx_data['outputs']}")
+                    st.write(f"**Tamanho estimado:** {tx_data['vbytes']} vBytes")
+                    st.code(f"TXID (calculado): {tx_data['txid']}")
+
+                    if no_broadcast:
+                        st.info("Transação **não** enviada. Você pode usar o HEX abaixo em outra ferramenta.")
+                        st.text_area("TX HEX assinado", tx_data["signed_tx_hex"], height=160)
+                        if out_hex_name.strip():
+                            st.download_button(
+                                "Baixar HEX",
+                                data=tx_data["signed_tx_hex"],
+                                file_name=out_hex_name.strip(),
+                                mime="text/plain"
+                            )
+                    else:
+                        txid_brd = tx_data.get("txid_broadcast", tx_data["txid"])
+                        st.success("Transação enviada para a rede (testnet).")
+                        st.code(txid_brd)
+                        st.markdown(f"[Ver na Blockstream](https://blockstream.info/testnet/tx/{txid_brd})")
+                except Exception as e:
+                    st.error(f"❌ Erro ao assinar/enviar: {e}")
+
+    # ------------------ BROADCAST EXTERNO (HEX pronto) ------------------
+    with st.expander("3️⃣ Fazer broadcast de TX assinado (externo)", expanded=False):
+        st.markdown("Cole o **transaction hex** já assinado (de outra wallet).")
+        tx_hex = st.text_area("Transaction HEX assinado", height=150, placeholder="0200000001...")
+
         if st.button("📡 Broadcast TX"):
             if not tx_hex or not tx_hex.strip():
                 st.error("❌ Cole o TX HEX assinado.")
@@ -423,14 +492,12 @@ else:
                 try:
                     with st.spinner("Enviando transação para a rede..."):
                         txid = broadcast_tx_hex(tx_hex)
-                    
-                    st.success(f"✅ Transação enviada com sucesso!")
-                    st.write("**TXID:**")
+                    st.success("✅ Transação enviada com sucesso!")
                     st.code(txid)
                     st.markdown(f"[Ver na Blockstream](https://blockstream.info/testnet/tx/{txid})")
-                    
                 except Exception as e:
                     st.error(f"❌ Erro ao enviar transação: {e}")
+
 
 # ============= APAGAR CARTEIRA =============
 st.header("⚠️ Apagar carteira local")
