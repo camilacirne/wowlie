@@ -5,3 +5,6 @@ rich==13.9.4
 qrcode==7.4.2
 Pillow==10.4.0            
 cryptography==46.0.3
+web3==6.15.1
+eth-account==0.10.0
+py-solc-x==2.0.4            

@@ -41,6 +41,45 @@ def init_wallet(password: str) -> dict:
         },
         "next_index": 1
     }
+    save_wallet(data)
+    return data
+
+
+def import_wallet(mnemonic: str, passphrase: str = ""):
+    # Remove espaços extras e normaliza
+    mnemonic = " ".join(mnemonic.lower().strip().split())
+    
+    try:
+        # Gera seed a partir do mnemonic
+        seed = seed_from_mnemonic(mnemonic, passphrase=passphrase)
+    except Exception as e:
+        raise ValueError(f"Frase mnemônica inválida: {str(e)}")
+    
+    # Criar chave raiz
+    rootxprv = rootxprv_from_seed(seed)
+    
+    # Derivar para o primeiro endereço BIP84 testnet
+    receive_path = "m/84'/1'/0'/0/0"
+    child_xprv = derive(rootxprv, receive_path)
+    
+    # Obter chave pública e endereço
+    pub_key = pub_keyinfo_from_key(child_xprv)[0]    
+    addr = b32.p2wpkh(pub_key, network="testnet")
+    
+    # Salvar dados da carteira
+    data = {
+        "mnemonic": mnemonic,
+        "account_path": "m/84'/1'/0'",
+        "addresses": {"0": {"path": receive_path, "address": addr}},
+        "next_index": 1
+    }
+    save_wallet(data)
+    return data
+
+
+def next_address():
+    w = load_wallet()
+    seed = seed_from_mnemonic(w["mnemonic"], passphrase="")
     
     save_wallet(data)
     
