@@ -4,3 +4,18 @@ __pycache__/
 .DS_Store # macOS
 Thumbs.db # Windows
 .vscode/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Electron build output
+dist-electron/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+tx_plan.json
