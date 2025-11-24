@@ -6,6 +6,13 @@ from web3 import Web3
 import json
 import os
 
+# Lista de RPCs públicos da Sepolia testnet (fallback)
+SEPOLIA_RPCS = [
+    "https://ethereum-sepolia-rpc.publicnode.com",
+    "https://rpc.sepolia.org",
+    "https://rpc2.sepolia.org",
+    "https://eth-sepolia.public.blastapi.io",
+]
 
 # RPCs do Polygon Amoy Testnet (substitui Mumbai que foi descontinuado em 04/2024)
 AMOY_RPCS = [
