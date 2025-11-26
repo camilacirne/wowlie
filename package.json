@@ -1,0 +1,83 @@
+{
+  "name": "wowlie-wallet",
+  "version": "1.0.0",
+  "description": "WowLie Wallet - Bitcoin Testnet Wallet",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.wowlie.wallet",
+    "productName": "WowLie Wallet",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron-main.js",
+      "streamlit_app.py",
+      "cli.py",
+      "requirements.txt",
+      "check-dependencies.bat",
+      "wallet/**/*",
+      "!wallet/__pycache__/**/*",
+      "!**/*.pyc"
+    ],
+    "extraResources": [
+      {
+        "from": ".",
+        "to": "app",
+        "filter": [
+          "**/*.py",
+          "requirements.txt",
+          "wallet/**/*",
+          "!**/__pycache__/**/*",
+          "!**/*.pyc"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.finance"
+    },
+    "linux": {
+      "target": ["deb", "AppImage"],
+      "icon": "assets/icon.png",
+      "category": "Finance"
+    }
+  },
+  "keywords": [
+    "bitcoin",
+    "wallet",
+    "testnet",
+    "cryptocurrency"
+  ],
+  "author": "WowLie Team",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "find-free-port": "^2.0.0"
+  }
+}

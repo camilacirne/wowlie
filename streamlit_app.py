@@ -1,7 +1,7 @@
 import io, os
 import qrcode
 import streamlit as st
-from wallet.keys import init_wallet, next_address, verify_wallet_password
+from wallet.keys import init_wallet, next_address, verify_wallet_password, import_wallet
 from wallet.utils import wallet_exists, load_addresses
 from wallet.password import validate_password_strength
 from wallet.network import get_balance
@@ -54,59 +54,113 @@ if "tx_plan" not in st.session_state:
 st.title("💰 WowLie Wallet")
 st.caption("Carteira BigCute Testnet segura")
 
-st.header("🪙 Criar carteira")
+# Tabs para criar ou importar carteira
+tab_create, tab_import = st.tabs(["🪙 Criar carteira", "📥 Importar carteira"])
 
-if st.session_state.wallet_created:
-    st.info("✅ Uma carteira já existe neste dispositivo. Para criar outra, apague a atual em '⚠️ Apagar carteira'.")
-else:
-    st.markdown(
-        "> **⚠️ Atenção:** A seed (12 palavras) será exibida **uma única vez** após a criação. "
-        "Anote **offline** e guarde com segurança. Sem a seed **ou** sem a senha, você perde tudo."
-    )
+with tab_create:
+    st.header("🪙 Criar nova carteira")
 
-    with st.form("create_wallet_form", clear_on_submit=True):
-        pwd = st.text_input("Defina a senha da carteira", type="password")
-        pwd2 = st.text_input("Confirme a senha", type="password")
-        submitted_create = st.form_submit_button("Criar carteira")
+    if st.session_state.wallet_created:
+        st.info("✅ Uma carteira já existe neste dispositivo. Para criar outra, apague a atual em '⚠️ Apagar carteira'.")
+    else:
+        st.markdown(
+            "> **⚠️ Atenção:** A seed (12 palavras) será exibida **uma única vez** após a criação. "
+            "Anote **offline** e guarde com segurança. Sem a seed **ou** sem a senha, você perde tudo."
+        )
 
-    if submitted_create:
-        ok, errs = validate_password_strength(pwd)
-        if not ok:
-            st.error("❌ Senha fraca:")
-            for e in errs:
-                st.write(f"- {e}")
-        elif pwd != pwd2:
-            st.error("❌ As senhas não coincidem.")
-        else:
-            try:
-                result = init_wallet(pwd)
-                st.session_state.wallet_created = True
-                st.session_state.unlocked = True
-                st.session_state.just_created_seed = result["mnemonic"]
-                st.session_state.first_address = result["first_address"]
+        with st.form("create_wallet_form", clear_on_submit=True):
+            pwd = st.text_input("Defina a senha da carteira", type="password")
+            pwd2 = st.text_input("Confirme a senha", type="password")
+            submitted_create = st.form_submit_button("Criar carteira")
 
-                st.success("✅ Carteira criada.")
+        if submitted_create:
+            ok, errs = validate_password_strength(pwd)
+            if not ok:
+                st.error("❌ Senha fraca:")
+                for e in errs:
+                    st.write(f"- {e}")
+            elif pwd != pwd2:
+                st.error("❌ As senhas não coincidem.")
+            else:
+                try:
+                    result = init_wallet(pwd)
+                    st.session_state.wallet_created = True
+                    st.session_state.unlocked = True
+                    st.session_state.just_created_seed = result["mnemonic"]
+                    st.session_state.first_address = result["first_address"]
 
-                with st.expander("📜 Seed (exibida apenas agora)", expanded=True):
-                    st.warning("⚠️ ANOTE OFFLINE e mantenha em local seguro. NÃO compartilhe.")
-                    st.code(st.session_state.just_created_seed)
-                    if st.button("✅ Já anotei / ocultar seed"):
-                        st.session_state.just_created_seed = None
-                        st.rerun()
+                    st.success("✅ Carteira criada.")
 
-                st.write("**Endereço inicial:**")
-                st.code(st.session_state.first_address)
+                    with st.expander("📜 Seed (exibida apenas agora)", expanded=True):
+                        st.warning("⚠️ ANOTE OFFLINE e mantenha em local seguro. NÃO compartilhe.")
+                        st.code(st.session_state.just_created_seed)
+                        if st.button("✅ Já anotei / ocultar seed"):
+                            st.session_state.just_created_seed = None
+                            st.rerun()
 
-                st.session_state.show_qr_initial = st.checkbox(
-                    "Mostrar QR do endereço inicial",
-                    value=st.session_state.show_qr_initial,
-                    key="show_qr_initial_checkbox"
-                )
-                if st.session_state.show_qr_initial:
-                    st.image(_qr_png_bytes(st.session_state.first_address), caption="QR do endereço inicial")
+                    st.write("**Endereço inicial:**")
+                    st.code(st.session_state.first_address)
 
-            except Exception as e:
-                st.error(f"❌ Erro ao criar carteira: {e}")
+                    st.session_state.show_qr_initial = st.checkbox(
+                        "Mostrar QR do endereço inicial",
+                        value=st.session_state.show_qr_initial,
+                        key="show_qr_initial_checkbox"
+                    )
+                    if st.session_state.show_qr_initial:
+                        st.image(_qr_png_bytes(st.session_state.first_address), caption="QR do endereço inicial")
+
+                except Exception as e:
+                    st.error(f"❌ Erro ao criar carteira: {e}")
+
+with tab_import:
+    st.header("📥 Importar carteira existente")
+
+    if st.session_state.wallet_created:
+        st.info("✅ Uma carteira já existe neste dispositivo. Para importar outra, apague a atual em '⚠️ Apagar carteira'.")
+    else:
+        st.markdown(
+            "> **⚠️ Atenção:** Insira as 12 palavras da sua seed para recuperar a carteira. "
+            "Defina uma senha para proteger a carteira neste dispositivo."
+        )
+
+        with st.form("import_wallet_form", clear_on_submit=True):
+            seed_words = st.text_area(
+                "Seed de 12 palavras", 
+                placeholder="Digite as 12 palavras separadas por espaço",
+                height=100
+            )
+            pwd_import = st.text_input("Defina a senha da carteira", type="password")
+            pwd_import2 = st.text_input("Confirme a senha", type="password")
+            submitted_import = st.form_submit_button("Importar carteira")
+
+        if submitted_import:
+            ok, errs = validate_password_strength(pwd_import)
+            if not ok:
+                st.error("❌ Senha fraca:")
+                for e in errs:
+                    st.write(f"- {e}")
+            elif pwd_import != pwd_import2:
+                st.error("❌ As senhas não coincidem.")
+            elif not seed_words.strip():
+                st.error("❌ Por favor, insira a seed de 12 palavras.")
+            else:
+                try:
+                    result = import_wallet(seed_words, pwd_import)
+                    st.session_state.wallet_created = True
+                    st.session_state.unlocked = True
+                    st.session_state.first_address = result["first_address"]
+
+                    st.success("✅ Carteira importada com sucesso!")
+                    st.write("**Endereço inicial recuperado:**")
+                    st.code(st.session_state.first_address)
+                    
+                    st.info("💡 Sua carteira foi importada. Use '🔐 Entrar na carteira' abaixo para acessar.")
+                    st.rerun()
+
+                except ValueError as e:
+                    st.error(f"❌ Erro ao importar carteira: {e}")
+                except Exception as e:
+                    st.error(f"❌ Erro inesperado: {e}")
 
 st.header("🔐 Entrar na carteira")
 
