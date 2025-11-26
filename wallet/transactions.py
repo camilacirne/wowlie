@@ -8,10 +8,11 @@ from wallet.network import get_utxos
 from wallet.keys import get_mnemonic
 from wallet.utils import load_wallet
 from btclib.mnemonic.bip39 import seed_from_mnemonic
-from btclib.bip32 import rootxprv_from_seed, derive
+from btclib.bip32 import rootxprv_from_seed, derive, BIP32KeyData
 from btclib.to_pub_key import pub_keyinfo_from_key
 from btclib.hashes import hash160
 from btclib.ecc import dsa
+from btclib.ecc.dsa import ecdsa_sign_, Sig
 from btclib import b32
 
 API = "https://blockstream.info/testnet/api"
@@ -158,7 +159,8 @@ def derive_private_key_ctx(address: str, password: str) -> Tuple[str, SensitiveB
 
     try:
         rootxprv = rootxprv_from_seed(seed)
-        child_xprv = derive(rootxprv, path)
+        child_xprv_str = derive(rootxprv, path)
+        child_xprv = BIP32KeyData.b58decode(child_xprv_str)
         raw = child_xprv.key 
         if not (isinstance(raw, (bytes, bytearray)) and len(raw) == 33 and raw[0] == 0x00):
             raise ValueError("Formato inesperado de chave XPRV.key")
@@ -294,34 +296,16 @@ def sign_input_segwit(input_idx: int, inputs: List[dict], outputs: Dict[str, int
         commit = build_witness_commitment(input_idx, inputs, outputs, amount, script_code)
         sighash = hash256(commit)
 
-        # Assinar: btclib.dsa.sign espera (digest, priv_key) -> (r, s)
-        # prv_ctx.buf é bytearray(32). btclib aceita bytes -> inevitável cópia aqui.
-        # Usamos memoryview pra reduzir cópias desnecessárias; mas btclib pode copiar internamente.
+        # Assinar: ecdsa_sign_() aceita hash pré-calculado (32 bytes)
+        # Retorna assinatura em formato DER compacto (já no formato correto!)
         with prv_ctx as prv_buf:
             # convert to bytes for library call
             priv_bytes = bytes(prv_buf)  # cópia inevitável
-            sig_rs = dsa.sign(sighash, priv_bytes)
-
-        # serializar DER (r,s) - manter compatibilidade com sua implementação anterior
-        r_bytes = sig_rs[0].to_bytes(32, 'big').lstrip(b'\x00')
-        if len(r_bytes) == 0:
-            r_bytes = b'\x00'
-        if r_bytes[0] >= 0x80:
-            r_bytes = b'\x00' + r_bytes
-
-        s_bytes = sig_rs[1].to_bytes(32, 'big').lstrip(b'\x00')
-        if len(s_bytes) == 0:
-            s_bytes = b'\x00'
-        if s_bytes[0] >= 0x80:
-            s_bytes = b'\x00' + s_bytes
-
-        sig_der = (
-            b'\x30' +
-            bytes([len(r_bytes) + len(s_bytes) + 4]) +
-            b'\x02' + bytes([len(r_bytes)]) + r_bytes +
-            b'\x02' + bytes([len(s_bytes)]) + s_bytes +
-            b'\x01'  # SIGHASH_ALL appended
-        )
+            # ecdsa_sign_() retorna DER da assinatura (sem SIGHASH_ALL)
+            sig_der_bytes = ecdsa_sign_(sighash, priv_bytes)
+        
+        # Adicionar SIGHASH_ALL (0x01) ao final da assinatura DER
+        sig_der = sig_der_bytes + b'\x01'
 
         return sig_der, pub_key
     finally:
@@ -380,8 +364,7 @@ def build_signed_segwit_tx(inputs: List[dict], outputs: Dict[str, int],
     # witness para cada input
     for i in range(len(inputs)):
         sig_der, pub_key = sign_input_segwit(i, inputs, outputs, from_address, password)
-        # stack: [signature, pubkey]
-        raw += b'\x02'
+        raw += varint_encode(2)  # número de stack items
         raw += varint_encode(len(sig_der))
         raw += sig_der
         raw += varint_encode(len(pub_key))
@@ -503,9 +486,26 @@ def broadcast_tx_hex(signed_tx_hex: str) -> str:
     Publica um TX HEX ASSINADO na Blockstream testnet.
     Retorna o txid (hex).
     """
-    r = requests.post(f"{API}/tx", data=signed_tx_hex.strip(), headers={"Content-Type": "text/plain"}, timeout=30)
-    r.raise_for_status()
-    return r.text.strip()
+    try:
+        r = requests.post(
+            f"{API}/tx", 
+            data=signed_tx_hex.strip(), 
+            headers={"Content-Type": "text/plain"}, 
+            timeout=30
+        )
+        r.raise_for_status()
+        return r.text.strip()
+    except requests.exceptions.HTTPError as e:
+        # Capturar e mostrar detalhes do erro
+        error_msg = f"Erro HTTP {e.response.status_code}"
+        try:
+            error_detail = e.response.text
+            error_msg += f": {error_detail}"
+        except:
+            pass
+        raise RuntimeError(f"{error_msg}\nTX hex (primeiros 200 chars): {signed_tx_hex[:200]}...")
+    except Exception as e:
+        raise RuntimeError(f"Erro ao transmitir transação: {e}")
 
 def send_transaction(from_address: str, to_address: str, amount_sats: int,
                      password: str, fee_rate: int = 5, change_address: Optional[str] = None,
