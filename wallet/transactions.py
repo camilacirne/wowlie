@@ -75,7 +75,7 @@ def serialize_script_pubkey(address: str) -> bytes:
     Suporta hrp 'tb' (testnet) e 'bcrt' (regtest) e 'bc' (mainnet).
     """
     try:
-        hrp, witver, witprog = b32.b32decode(address)
+        witver, witprog, network = b32.witness_from_address(address)
     except Exception as e:
         raise ValueError(f"Endereço inválido ({address}): {e}")
 
