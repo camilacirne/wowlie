@@ -167,10 +167,10 @@ def derive_private_key_ctx(address: str, password: str) -> Tuple[str, SensitiveB
         prv_ctx = SensitiveBytes(raw[1:])
         return path, prv_ctx
     finally:
-        # reduzir vida de variáveis imutáveis o quanto possível
+
         try:
             del mnemonic
-            # seed é bytes imutável; sobrescrever com bytearray rápido
+
             seed_ba = bytearray(seed)
             secure_zeroize(seed_ba)
             del seed_ba
@@ -272,23 +272,18 @@ def sign_input_segwit(input_idx: int, inputs: List[dict], outputs: Dict[str, int
     Assina um input SegWit (P2WPKH) e retorna (sig_der_with_sighash, pubkey_compressed).
     Usa derive_private_key_ctx para manter chave privada mutável e zeroizá-la após uso.
     """
-    # Derivar chave privada em contexto
+
     path, prv_ctx = derive_private_key_ctx(from_address, password)
-    # Usaremos pubkey derivado separadamente (temos que derivar xprv novamente para pegar pubkey)
-    # Minimizar tempo de vida da chave privada
     try:
-        # Derivar public key via seed (não extraímos chave privada em bytes imutáveis)
         mnemonic = get_mnemonic(password)
         seed = seed_from_mnemonic(mnemonic, passphrase="")
         rootxprv = rootxprv_from_seed(seed)
         child_xprv = derive(rootxprv, path)
         pub_key = pub_keyinfo_from_key(child_xprv)[0]
 
-        # Sanity check: pubkey comprimida (33 bytes)
         if not (len(pub_key) == 33 and pub_key[0] in (0x02, 0x03)):
             raise ValueError("Chave pública obtida não está em formato comprimido (33 bytes).")
 
-        # scriptCode P2WPKH (P2PKH-style for BIP143)
         pubkey_hash = hash160(pub_key)
         script_code = bytes([0x76, 0xa9, 0x14]) + pubkey_hash + bytes([0x88, 0xac])
 
@@ -296,20 +291,15 @@ def sign_input_segwit(input_idx: int, inputs: List[dict], outputs: Dict[str, int
         commit = build_witness_commitment(input_idx, inputs, outputs, amount, script_code)
         sighash = hash256(commit)
 
-        # Assinar: ecdsa_sign_() aceita hash pré-calculado (32 bytes)
-        # Retorna assinatura em formato DER compacto (já no formato correto!)
         with prv_ctx as prv_buf:
-            # convert to bytes for library call
-            priv_bytes = bytes(prv_buf)  # cópia inevitável
-            # ecdsa_sign_() retorna DER da assinatura (sem SIGHASH_ALL)
+            priv_bytes = bytes(prv_buf) 
             sig_der_bytes = ecdsa_sign_(sighash, priv_bytes)
         
-        # Adicionar SIGHASH_ALL (0x01) ao final da assinatura DER
         sig_der = sig_der_bytes + b'\x01'
 
         return sig_der, pub_key
     finally:
-        # best-effort: zerar seed e outros objetos temporários
+
         try:
             del mnemonic
             seed_ba = bytearray(seed)
@@ -323,7 +313,6 @@ def sign_input_segwit(input_idx: int, inputs: List[dict], outputs: Dict[str, int
             del child_xprv
         except Exception:
             pass
-        # prv_ctx.__exit__ já foi chamado pelo 'with' acima; se não, garantir zeroização adicional:
         try:
             secure_zeroize(prv_ctx._buf)
             prv_ctx._buf = bytearray()
@@ -395,7 +384,6 @@ def build_and_sign_tx(from_address: str, to_address: str, amount_sats: int,
 
     if change > 0:
         if change < DUST_P2WPKH:
-            # não criar troco dust; somar ao fee
             fee_est += change
             change = 0
         else:
@@ -403,17 +391,13 @@ def build_and_sign_tx(from_address: str, to_address: str, amount_sats: int,
                 change_address = from_address
             outputs[change_address] = change
 
-    # preparar inputs
     inputs = [{"txid": u["txid"], "vout": u["vout"], "value": u["value"]} for u in selected]
 
-    # assinar
     signed_hex = build_signed_segwit_tx(inputs, outputs, from_address, password)
 
-    # recalcular vbytes aproximado e fee final
     vbytes = estimate_vbytes(len(inputs), len(outputs))
     fee_final = vbytes * fee_rate
 
-    # calcular txid (sha256d da tx sem witness)
     txid = hash256(build_unsigned_tx(inputs, outputs))[::-1].hex()
 
     return {
@@ -496,7 +480,6 @@ def broadcast_tx_hex(signed_tx_hex: str) -> str:
         r.raise_for_status()
         return r.text.strip()
     except requests.exceptions.HTTPError as e:
-        # Capturar e mostrar detalhes do erro
         error_msg = f"Erro HTTP {e.response.status_code}"
         try:
             error_detail = e.response.text

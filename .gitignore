@@ -4,7 +4,7 @@ __pycache__/
 .DS_Store # macOS
 Thumbs.db # Windows
 .vscode/
-
+venv/
 # Node.js
 node_modules/
 package-lock.json
