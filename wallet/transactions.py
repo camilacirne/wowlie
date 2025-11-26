@@ -53,12 +53,8 @@ class SensitiveBytes:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         secure_zeroize(self._buf)
-        # substituir por buffer vazio para minimizar referências
         self._buf = bytearray()
 
-# ---------------------------
-# Helpers de serialização
-# ---------------------------
 
 def varint_encode(n: int) -> bytes:
     if n < 0xfd:
@@ -88,9 +84,6 @@ def serialize_script_pubkey(address: str) -> bytes:
 
     return bytes([0x00, 0x14]) + witprog
 
-# ---------------------------
-# Seleção de UTXOs / fees
-# ---------------------------
 
 def estimate_vbytes(n_inputs: int, n_outputs: int) -> int:
     """
@@ -106,7 +99,7 @@ def sats_for_fee(n_inputs: int, n_outputs: int, fee_rate: int) -> int:
     vb = estimate_vbytes(n_inputs, n_outputs)
     return vb * fee_rate
 
-DUST_P2WPKH = 546  # referência; usado para evitar criar troco dust
+DUST_P2WPKH = 546  
 
 def select_utxos(utxos: List[dict], amount_sats: int, fee_rate: int) -> Tuple[List[dict], int, int]:
     """
@@ -143,7 +136,6 @@ def get_address_path(address: str) -> Optional[str]:
     """
     try:
         w = load_wallet()
-        # espera-se w["addresses"] como dict index-> {address, path, index}
         for idx, addr_data in w.get("addresses", {}).items():
             if addr_data.get("address") == address:
                 return addr_data.get("path")
@@ -161,17 +153,15 @@ def derive_private_key_ctx(address: str, password: str) -> Tuple[str, SensitiveB
     if not path:
         raise ValueError(f"Endereço {address} não encontrado na carteira")
 
-    # mnemonic é str (imutável) — minimizar vida dessa variável
     mnemonic = get_mnemonic(password)
     seed = seed_from_mnemonic(mnemonic, passphrase="")
 
     try:
         rootxprv = rootxprv_from_seed(seed)
         child_xprv = derive(rootxprv, path)
-        raw = child_xprv.key  # formato esperado: 0x00 + 32 bytes priv
+        raw = child_xprv.key 
         if not (isinstance(raw, (bytes, bytearray)) and len(raw) == 33 and raw[0] == 0x00):
             raise ValueError("Formato inesperado de chave XPRV.key")
-        # cria contexto sensível com os 32 bytes
         prv_ctx = SensitiveBytes(raw[1:])
         return path, prv_ctx
     finally:
@@ -377,7 +367,6 @@ def build_signed_segwit_tx(inputs: List[dict], outputs: Dict[str, int],
         raw += bytes.fromhex(inp['txid'])[::-1]
         raw += struct.pack('<I', inp['vout'])
         raw += b'\x00'  # scriptSig len
-        # sequence: usar padrão; se quiser RBF, mude para 0xfffffffd
         raw += b'\xff\xff\xff\xff'
 
     # outputs
