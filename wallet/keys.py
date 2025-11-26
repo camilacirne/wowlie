@@ -114,3 +114,63 @@ def verify_wallet_password(password: str = None) -> bool:
         return True
     except Exception:
         return False
+
+
+def import_wallet(mnemonic: str, password: str) -> dict:
+    """
+    Importa uma carteira existente a partir de uma seed de 12 palavras.
+    """
+    if not isinstance(password, str) or not password:
+        raise ValueError("Senha inválida.")
+    
+    if not isinstance(mnemonic, str) or not mnemonic.strip():
+        raise ValueError("Seed inválida.")
+    
+    # Normalizar a seed (remover espaços extras, lowercase)
+    mnemonic = " ".join(mnemonic.strip().lower().split())
+    
+    # Verificar se a seed tem 12 palavras
+    words = mnemonic.split()
+    if len(words) != 12:
+        raise ValueError(f"A seed deve ter 12 palavras. Você forneceu {len(words)} palavras.")
+    
+    # Tentar gerar a seed - se inválida, btclib vai lançar exceção
+    try:
+        seed = seed_from_mnemonic(mnemonic, passphrase="")
+    except Exception as e:
+        raise ValueError(f"Seed inválida: {e}")
+    
+    # Criptografar a mnemonic com a senha fornecida
+    encrypted_mnemonic = encrypt_mnemonic(mnemonic, password)
+    
+    rootxprv = rootxprv_from_seed(seed)
+    
+    # Derivar primeiro endereço BIP84 (native segwit) para testnet
+    receive_path = "m/84'/1'/0'/0/0"
+    child_xprv = derive(rootxprv, receive_path)
+    
+    # Obter chave pública e gerar endereço
+    pub_key = pub_keyinfo_from_key(child_xprv)[0]
+    addr = b32.p2wpkh(pub_key, network="testnet")
+    
+    data = {
+        "encrypted_mnemonic": encrypted_mnemonic,  
+        "account_path": "m/84'/1'/0'",
+        "network": "testnet",
+        "addresses": {
+            "0": {
+                "path": receive_path,
+                "address": addr
+            }
+        },
+        "next_index": 1
+    }
+    
+    save_wallet(data)
+    
+    del seed, rootxprv, child_xprv
+    
+    return {
+        "wallet": data,
+        "first_address": addr,
+    }

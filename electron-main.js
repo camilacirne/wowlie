@@ -20,7 +20,16 @@ const getAppPath = () => {
 
 // Encontrar Python
 const getPythonCommand = () => {
-  // Sempre usar Python do sistema (PATH)
+  // Em desenvolvimento, usar venv se existir
+  if (isDev) {
+    const venvPython = path.join(__dirname, 'venv', 'bin', 'python3');
+    const fs = require('fs');
+    if (fs.existsSync(venvPython)) {
+      return venvPython;
+    }
+  }
+  
+  // Usar Python do sistema (PATH)
   if (process.platform === 'win32') {
     return 'python';
   }
