@@ -129,6 +129,9 @@ Mnemonic Criptografada → ~/.wowlie/wallet.json
 
 ### ⚠️ Avisos Importantes
 
+- Para incluir moedas pra teste usamos:
+https://bitcoinfaucet.uo1.net/send.php
+
 - ✅ **Anote a seed**: Você verá as 12 palavras **uma única vez**
 - ✅ **Guarde offline**: Papel, cofre, local seguro
 - ✅ **Testnet apenas**: Esta versão é para testes (sem valor real)
